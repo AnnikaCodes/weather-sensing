@@ -118,12 +118,16 @@ DEFAULT_HTML = """
 """
 
 def c_to_f(c):
+    if c is None:
+        return None
     return c * 9/5 + 32
 def f_to_c(f):
+    if f is None:
+        return None
     return (f - 32) * 5/9
 def fmt_decimal(d):
     if d is None:
-        return "None"
+        return "is not available D:"
     return str(round(d, 1))
 
 # Our own class extending BaseHTTPRequestHandler to handle POST requests
