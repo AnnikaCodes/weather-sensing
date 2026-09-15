@@ -59,7 +59,12 @@ HIGHHI = -274
 LOW = -274
 LOWHI = -274
 
+LAST_TIMESTAMP = 0
+
+MIN_INTERVAL = 60 # no more than one POST request every 60 seconds
+
 def update_plots():
+    global HIGH, LOW, HIGHHI, LOWHI
     # Regenerates the plots of temperature, humidity, and heat index over the last 24 hours
     cursor = db.cursor()
     # Get the last 24 hours of data
@@ -112,6 +117,13 @@ DEFAULT_HTML = """
 </html>
 """
 
+def c_to_f(c):
+    return c * 9/5 + 32
+def f_to_c(f):
+    return (f - 32) * 5/9
+def fmt_decimal(d):
+    return str(round(d, 1))
+
 # Our own class extending BaseHTTPRequestHandler to handle POST requests
 class Server(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -126,10 +138,20 @@ class Server(BaseHTTPRequestHandler):
         b64hum = base64.b64encode(hum_png).decode('utf-8')
 
         html = DEFAULT_HTML.replace('$B64TEMP$', b64temp).replace('$B64HUM$', b64hum)
-        html = html.replace('$HIGH$', str(HIGH)).replace('$LOW$', str(LOW)).replace('$HIGHHI$', str(HIGHHI)).replace('$LOWHI$', str(LOWHI))
-        html = html.replace('$HIGHF$', str(HIGH * 9/5 + 32)).replace('$LOWF$', str(LOW * 9/5 + 32)).replace('$HIGHHIF$', str(HIGHHI * 9/5 + 32)).replace('$LOWHIF$', str(LOWHI * 9/5 + 32))
+        html = html.replace('$HIGH$', fmt_decimal(HIGH)).replace('$LOW$', fmt_decimal(LOW)).replace('$HIGHHI$', fmt_decimal(HIGHHI)).replace('$LOWHI$', fmt_decimal(LOWHI))
+        html = html.replace('$HIGHF$', fmt_decimal(c_to_f(HIGH))).replace('$LOWF$', fmt_decimal(c_to_f(LOW))).replace('$HIGHHIF$', fmt_decimal(c_to_f(HIGHHI))).replace('$LOWHIF$', fmt_decimal(c_to_f(LOWHI)))
         self.wfile.write(html.encode('utf-8'))
     def do_POST(self):
+        global LAST_TIMESTAMP
+        
+        timestamp = time.time()
+
+        if (timestamp - LAST_TIMESTAMP) < MIN_INTERVAL:
+            self.send_response(429)
+            self.end_headers()
+            self.wfile.write(b'Too Many Requests')
+            return
+
         # Check for secret key in headers
         if self.headers.get('X-Secret-Key') != args.secret :
             self.send_response(403)
@@ -147,7 +169,6 @@ class Server(BaseHTTPRequestHandler):
             return
         humidity = float(humidity)
         temperature = float(temperature)
-        timestamp = time.time()
 
         cursor = db.cursor()
         cursor.execute('INSERT INTO weather_data (timestamp, temperature, humidity) VALUES (?, ?, ?)', (timestamp, temperature, humidity))
