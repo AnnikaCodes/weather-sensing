@@ -9,6 +9,7 @@
 
 
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <DHT11.h>
 
 #define DHT11_PIN 2
@@ -37,7 +38,7 @@ void report_cycle() {
 
     // POST data
     // see https://randomnerdtutorials.com/esp32-http-get-post-arduino/#http-post
-    WifiClient client;
+    WiFiClient client;
     HTTPClient http;
     http.begin(client, BACKEND_URL);
     http.addHeader("Authorization", "YOUR_SECRET_KEY"); // Replace with your actual secret key
