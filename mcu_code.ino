@@ -40,7 +40,7 @@ void report_cycle() {
     WifiClient client;
     HTTPClient http;
     http.begin(client, BACKEND_URL);
-    http.addHeader("X-Secret-Key", "YOUR_SECRET_KEY"); // Replace with your actual secret key
+    http.addHeader("Authorization", "YOUR_SECRET_KEY"); // Replace with your actual secret key
     http.addHeader("X-Temperature", String(temperature));
     http.addHeader("X-Humidity", String(humidity));
     int httpResponseCode = http.POST("");

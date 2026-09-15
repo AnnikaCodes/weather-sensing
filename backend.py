@@ -153,7 +153,7 @@ class Server(BaseHTTPRequestHandler):
             return
 
         # Check for secret key in headers
-        if self.headers.get('X-Secret-Key') != args.secret :
+        if self.headers.get('Authorization') != args.secret :
             self.send_response(403)
             self.end_headers()
             self.wfile.write(b'Forbidden')
