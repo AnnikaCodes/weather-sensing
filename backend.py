@@ -87,7 +87,7 @@ def update_plots():
     ax.plot(times, heat_indices, label='Heat Index (C)')
     ax.set_xlabel('Time')
     ax.set_ylabel('degrees Celsius')
-    # ax.set_xlim(datetime.date.fromtimestamp(time.time() - 24*60*60), datetime.date.fromtimestamp(time.time()))
+    ax.set_xlim(datetime.date.fromtimestamp(time.time() - 24*60*60), datetime.date.fromtimestamp(time.time()))
     ax.legend()
     print(times, temperatures, humidities, heat_indices)
     plt.savefig('plots/temp_last_24_hours.png')
@@ -128,7 +128,7 @@ def f_to_c(f):
 def fmt_decimal(d):
     if d is None:
         return "is not available D:"
-    return str(round(d, 1))
+    return str(round(d, 0))
 
 # Our own class extending BaseHTTPRequestHandler to handle POST requests
 class Server(BaseHTTPRequestHandler):

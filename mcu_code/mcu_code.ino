@@ -9,18 +9,18 @@
 
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <DHT11.h>
 
 #define DHT11_PIN 2
-DHT11 dht(2);
 
 // Change these to your Wi-Fi credentials!
 // (And don't leak them if there is really a password.)
 //
 // TODO: check if this works to connect to passwordless network
-const char* SSID = "Claremont-Guest"; 
-const char* PASSWORD = "";
+const char* SSID = "Claremont-ETC"; 
+const char* PASSWORD = "Wouldn't you like to know, weather boy?";
 const char* BACKEND_URL = "https://weather.worldbrightening.net/";
 
 // Connects to Wi-Fi, reads sensor, and reports data.
@@ -33,28 +33,43 @@ void report_cycle() {
     }
     Serial.println("Connected to Wi-Fi!");
 
+    DHT11 dht(2);
     float temperature = dht.readTemperature();
     float humidity = dht.readHumidity();
 
+    if (temperature > 60.0 || temperature < -60.0) {
+        Serial.println("bad temperature");
+        return;
+    }
+
+    Serial.println(temperature);
+    Serial.println(humidity);
+
     // POST data
     // see https://randomnerdtutorials.com/esp32-http-get-post-arduino/#http-post
-    WiFiClient client;
-    HTTPClient http;
-    http.begin(client, BACKEND_URL);
-    http.addHeader("Authorization", "YOUR_SECRET_KEY"); // Replace with your actual secret key
-    http.addHeader("X-Temperature", String(temperature));
-    http.addHeader("X-Humidity", String(humidity));
-    int httpResponseCode = http.POST("");
+    WiFiClientSecure *client = new WiFiClientSecure;
+    //partially made by google gemini
+    if (client) {
+        client->setInsecure();
 
-    if (httpResponseCode > 0) {
-        String response = http.getString();
-        Serial.println(httpResponseCode);
-        Serial.println(response);
-    } else {
-        Serial.print("Error on sending POST: ");
-        Serial.println(httpResponseCode);
+        HTTPClient http;
+        http.begin(*client, BACKEND_URL);
+        http.addHeader("Authorization", "YOUR_SECRET"); // Replace with your actual secret key
+        http.addHeader("X-Temperature", String(temperature));
+        http.addHeader("X-Humidity", String(humidity));
+        int httpResponseCode = http.POST("");
+
+        if (httpResponseCode > 0) {
+            String response = http.getString();
+            Serial.println(httpResponseCode);
+            Serial.println(response);
+        } else {
+            Serial.print("Error on sending POST: ");
+            Serial.println(httpResponseCode);
+        }
+        http.end();
     }
-    http.end();
+    delete client;
 }
 
 // Setup runs again after waking from sleep, so we odn't need to use loop()
