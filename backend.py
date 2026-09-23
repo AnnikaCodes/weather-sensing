@@ -20,6 +20,7 @@ import time
 import sqlite3
 import datetime 
 import base64
+import matplotlib
 
 from http.server import *
 from matplotlib import pyplot as plt
@@ -58,55 +59,71 @@ HIGH = -274
 HIGHHI = -274
 LOW = -274
 LOWHI = -274
+LATEST_TEMP = 0
+LATEST_HI = 0
 
 LAST_TIMESTAMP = 0
 
 MIN_INTERVAL = 60 # no more than one POST request every 60 seconds
 
 def update_plots():
-    global HIGH, LOW, HIGHHI, LOWHI
+    global HIGH, LOW, HIGHHI, LOWHI, LATEST_TEMP, LATEST_HI, LAST_TIMESTAMP
     # Regenerates the plots of temperature, humidity, and heat index over the last 24 hours
     cursor = db.cursor()
     # Get the last 24 hours of data
-    cursor.execute('SELECT timestamp, temperature, humidity FROM weather_data WHERE timestamp >= ?', (time.time() - 24*60*60,))
+    cursor.execute('SELECT timestamp, temperature, humidity FROM weather_data WHERE timestamp >= ? ORDER BY timestamp asc', (time.time() - 24*60*60,))
     data = cursor.fetchall()
     cursor.close()
 
-    times = [datetime.date.fromtimestamp(float(x[0])) for x in data]
+    times = [datetime.datetime.fromtimestamp(float(x[0])) for x in data]
     temperatures = [float(x[1]) for x in data]
     humidities = [float(x[2]) for x in data]
     heat_indices = [heat_index(t, h) for t, h in zip(temperatures, humidities)]
+    if data[-1][0] > LAST_TIMESTAMP:
+        LAST_TIMESTAMP = data[-1][0]
 
     HIGH = max(temperatures) if temperatures else None
     LOW = min(temperatures) if temperatures else None
     HIGHHI = max(heat_indices) if heat_indices else None
     LOWHI = min(heat_indices) if heat_indices else None
+    LATEST_TEMP = temperatures[-1]
+    LATEST_HI = heat_indices[-1]
 
     fig, ax = plt.subplots()
-    ax.plot(times, temperatures, label='Temperature (C)')
-    ax.plot(times, heat_indices, label='Heat Index (C)')
+    ax.plot(times, temperatures, marker='o', label='Temperature (C)')
+    ax.plot(times, heat_indices, marker='o', label='Heat Index (C)')
     ax.set_xlabel('Time')
+    ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M"))
     ax.set_ylabel('degrees Celsius')
-    ax.set_xlim(datetime.date.fromtimestamp(time.time() - 24*60*60), datetime.date.fromtimestamp(time.time()))
     ax.legend()
+    plt.title("Temperature")
+    plt.grid(which='both')
+    ax.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1))
     print(times, temperatures, humidities, heat_indices)
     plt.savefig('plots/temp_last_24_hours.png')
 
     # Plot humidity
     fig, ax = plt.subplots()
-    ax.plot(times, humidities, label='Humidity (%)')
+    ax.plot(times, humidities, marker='o', label='Humidity (%)')
     ax.set_xlabel('Time')
+    plt.grid(which='both')
+    ax.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(5))
+    ax.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(10))
+    ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M"))
+    ax.set_ylim(0, 100)
     ax.set_ylabel('Relative Humidity (%)')
     ax.legend()
+    plt.title("Relative Humidity")
     plt.savefig('plots/humidity_last_24_hours.png')
     print(data)
 
 update_plots()
-
+print(LAST_TIMESTAMP)
 DEFAULT_HTML = """
 <!DOCTYPE html>
 <html>
 <body>
+    <b>Latest Data: $LATEST$&#176;C / $LATESTF$&#176;F (Heat Index: $LATESTHI$&#176;C / $LATESTHIF$&#176;C), at $TIME$</b><br>
     Today's High: $HIGH$&#176;C / $HIGHF$&#176;F<br>
     Today's High Heat Index: $HIGHHI$&#176;C / $HIGHHIF$&#176;F<br>
     Today's Low: $LOW$&#176;C / $LOWF$&#176;F<br>
@@ -146,6 +163,9 @@ class Server(BaseHTTPRequestHandler):
         html = DEFAULT_HTML.replace('$B64TEMP$', b64temp).replace('$B64HUM$', b64hum)
         html = html.replace('$HIGH$', fmt_decimal(HIGH)).replace('$LOW$', fmt_decimal(LOW)).replace('$HIGHHI$', fmt_decimal(HIGHHI)).replace('$LOWHI$', fmt_decimal(LOWHI))
         html = html.replace('$HIGHF$', fmt_decimal(c_to_f(HIGH))).replace('$LOWF$', fmt_decimal(c_to_f(LOW))).replace('$HIGHHIF$', fmt_decimal(c_to_f(HIGHHI))).replace('$LOWHIF$', fmt_decimal(c_to_f(LOWHI)))
+        html = html.replace('$LATEST$', fmt_decimal(LATEST_TEMP)).replace('$LATESTF$', fmt_decimal(c_to_f(LATEST_TEMP)))
+        html = html.replace('$LATESTHI$', fmt_decimal(LATEST_HI)).replace('$LATESTHIF$', fmt_decimal(c_to_f(LATEST_HI)))
+        html = html.replace('$TIME$', datetime.datetime.fromtimestamp(LAST_TIMESTAMP).strftime("%Y-%m-%d at %H:%M"))
         self.wfile.write(html.encode('utf-8'))
     def do_POST(self):
         global LAST_TIMESTAMP
