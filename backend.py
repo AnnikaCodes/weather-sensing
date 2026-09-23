@@ -128,7 +128,7 @@ def f_to_c(f):
 def fmt_decimal(d):
     if d is None:
         return "is not available D:"
-    return str(round(d, 0))
+    return str(int(d))
 
 # Our own class extending BaseHTTPRequestHandler to handle POST requests
 class Server(BaseHTTPRequestHandler):
